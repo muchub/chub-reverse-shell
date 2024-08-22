@@ -33,7 +33,7 @@ and allows for command execution on the connected clients. The server captures a
 4. Run the script:
 
     ```
-    python chub.py
+    python chub.py -p [PORT] 
     ```
 
 5. Go to "http://localhost:5000/" for enter the panel
